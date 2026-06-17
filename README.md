@@ -647,7 +647,6 @@ bazzite-bc250-toolkit/
 └── .gitignore
 ```
 
-Recommended license: MIT, unless you intentionally choose another license compatible with your use of external projects.
 
 ---
 
