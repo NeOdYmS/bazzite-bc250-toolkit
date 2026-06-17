@@ -648,3 +648,14 @@ bazzite-bc250-toolkit/
 ```
 
 Recommended license: MIT, unless you intentionally choose another license compatible with your use of external projects.
+
+---
+
+## License
+
+This project is released under the MIT License.
+
+You are free to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of this software, provided that the original copyright notice and this permission notice are included.
+
+See the MIT License for details.
+
