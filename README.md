@@ -73,7 +73,7 @@ The script should show:
 
 ```text
 Bazzite BC250 Toolkit
-Version: 2.9-bazzite
+Version: 2.10-bazzite
 ```
 
 ---
@@ -272,22 +272,50 @@ should expose the expected CPU frequency states, typically including values such
 
 ## NCT6687 / NCT6686 sensors
 
-The toolkit can build and load the NCT6687-compatible sensor module from a writable location instead of trying to modify immutable host paths.
-
-It can:
-
-- Clone / update the sensor driver repository.
-- Build the module for the current kernel.
-- Install it under `/var/lib/bc250/modules/<kernel>/`.
-- Create a loader script.
-- Create and enable a systemd service.
-
-Files created:
+The BC-250 documentation describes two different Nuvoton paths:
 
 ```text
-/var/lib/bc250/modules/<kernel>/nct6687.ko
-/usr/local/sbin/bc250-load-nct6687
-/etc/systemd/system/bc250-nct6687.service
+nct6683 = read-only monitoring
+nct6687 = PWM fan control / CoolerControl path
+```
+
+Do **not** load both at the same time for the CoolerControl/PWM workflow. Loading both exposes duplicate `nct6686` hwmon devices, for example:
+
+```text
+/sys/devices/platform/nct6683.2592
+/sys/devices/platform/nct6687.2592
+```
+
+This can make CoolerControl attach to the read-only `nct6683` instance, show duplicated `nct6686` devices, or apply profiles to stale fan/PWM channels.
+
+For PWM fan control, the toolkit now makes the `nct6687` path exclusive. Before installing/loading `nct6687`, it disables old `nct6683` forced-loading configuration such as:
+
+```text
+/etc/modules-load.d/nct6683.conf
+/etc/modprobe.d/sensors.conf
+/etc/sysconfig/lm_sensors
+```
+
+The toolkit can:
+
+- Clone / update the `nct6687d` driver repository.
+- Build the module for the current kernel.
+- Install it under `/var/lib/bc250/modules/<kernel>/`.
+- Create `/usr/local/sbin/bc250-load-nct6687`.
+- Create and enable `bc250-nct6687.service`.
+- Unbind/unload `nct6683` at runtime when possible.
+- Verify that only one `nct6686` hwmon device remains and that it uses `platform:nct6687`.
+
+Expected state after install/reboot:
+
+```text
+/sys/class/hwmon/hwmonX -> /sys/devices/platform/nct6687.2592 / modalias=platform:nct6687
+```
+
+State to avoid when using CoolerControl PWM mode:
+
+```text
+/sys/devices/platform/nct6683.2592
 ```
 
 Useful readings include:
