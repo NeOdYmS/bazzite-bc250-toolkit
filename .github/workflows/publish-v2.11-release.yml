@@ -1,0 +1,38 @@
+name: Publish BC250 Toolkit v2.11
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'release-notes/v2.11-bazzite.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-v2-11:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release sources
+        uses: actions/checkout@v4
+
+      - name: Verify toolkit version
+        run: |
+          grep -q '^VERSION="2.11-bazzite"$' bc250-toolkit-bazzite.sh
+          bash -n bc250-toolkit-bazzite.sh
+
+      - name: Publish release if missing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v2.11-bazzite --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release v2.11-bazzite already exists; nothing to do.'
+            exit 0
+          fi
+          gh release create v2.11-bazzite \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Bazzite BC250 Toolkit v2.11" \
+            --notes-file release-notes/v2.11-bazzite.md \
+            --latest
