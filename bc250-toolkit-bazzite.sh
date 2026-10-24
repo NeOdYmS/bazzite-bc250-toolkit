@@ -2898,7 +2898,7 @@ install_nct6687_sensors() {
     make
   )
 
-  local built="$NCT6687_DIR/$(uname -r)/nct6687.ko"
+  local built="$NCT6687_DIR/nct6687.ko"
   if [[ ! -f "$built" ]]; then
     warn "Built module not found: $built"
     return 1
