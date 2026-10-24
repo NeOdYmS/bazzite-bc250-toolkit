@@ -56,7 +56,7 @@ The script tries to detect useful paths instead of assuming one language or one 
 Clone the repository:
 
 ```bash
-git clone https://github.com/YOUR_USER/bazzite-bc250-toolkit.git
+git clone https://github.com/NeOdYmS/bazzite-bc250-toolkit.git
 cd bazzite-bc250-toolkit
 chmod +x bc250-toolkit.sh
 sudo ./bc250-toolkit.sh
@@ -73,7 +73,7 @@ The script should show:
 
 ```text
 Bazzite BC250 Toolkit
-Version: 2.10-bazzite
+Version: 2.11-bazzite
 ```
 
 ---
