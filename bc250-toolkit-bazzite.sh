@@ -12,7 +12,7 @@
 # ==============================================================================
 set -Eeuo pipefail
 
-VERSION="2.10-bazzite"
+VERSION="2.11-bazzite"
 APP_TITLE="Bazzite BC250 Toolkit"
 APP_SUBTITLE="System Setup & Configuration"
 
@@ -1414,6 +1414,17 @@ install_cpu_governor_deps() {
 install_cpu_governor() {
   title "CPU Governor"
 
+  # Existing pipx environments survive some Bazzite deployments
+  # even when the pipx management command is no longer installed.
+  if ! command_exists pipx &&
+     [[ -x /var/roothome/.local/bin/bc250-detect ]] &&
+     [[ -x /var/roothome/.local/bin/bc250-apply ]]; then
+    ok "Existing bc250 CPU tools detected."
+    warn "pipx is absent; updating requires reinstalling pipx."
+    warn "Existing CPU tools have been preserved."
+    return 0
+  fi
+
   if ! command_exists git || ! command_exists pipx; then
     warn "git and/or pipx are missing on the current deployment."
     warn "I will request the correct Bazzite/Fedora packages now: git pipx"
@@ -1433,7 +1444,10 @@ install_cpu_governor() {
     git clone "$CPU_REPO" "$CPU_REPO_DIR"
   fi
 
-  pipx install --force "$CPU_REPO_DIR"
+  env HOME=/var/roothome \
+    PIPX_HOME=/var/roothome/.local/share/pipx \
+    PIPX_BIN_DIR=/var/roothome/.local/bin \
+    pipx install --force "$CPU_REPO_DIR" || return 1
 
   mkdir -p /usr/local/bin
   for bin in bc250-detect bc250-apply; do
@@ -1454,6 +1468,14 @@ EOF_CPU_WRAPPER
       ok "Installed wrapper /usr/local/bin/$bin -> $target"
     else
       warn "pipx binary not found for $bin. Check: /var/roothome/.local/bin and /root/.local/bin"
+    fi
+  done
+
+  for bin in bc250-detect bc250-apply; do
+    if [[ ! -x "/var/roothome/.local/bin/$bin" ]] ||
+       [[ ! -x "/usr/local/bin/$bin" ]]; then
+      warn "Installation incomplete: $bin missing."
+      return 1
     fi
   done
 
@@ -2675,7 +2697,9 @@ HandleLidSwitchExternalPower=ignore
 IdleAction=ignore
 EOF_SLEEP
 
-  systemctl restart systemd-logind || true
+  # Avoid restarting logind during an active KDE/Steam session.
+  # Configuration takes effect after the next reboot.
+  warn "Reboot required to apply logind configuration."
 
   ok "System sleep/hibernate targets masked."
   ok "logind sleep actions disabled."
@@ -2686,7 +2710,9 @@ enable_sleep_modes() {
   title "Re-enable Sleep / Hibernation"
   systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
   rm -f /etc/systemd/logind.conf.d/disable-sleep.conf
-  systemctl restart systemd-logind || true
+  # Avoid restarting logind during an active KDE/Steam session.
+  # Configuration takes effect after the next reboot.
+  warn "Reboot required to apply logind configuration."
   ok "Sleep/hibernate targets unmasked and logind override removed."
 }
 
