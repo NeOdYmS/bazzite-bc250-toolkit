@@ -1,0 +1,75 @@
+name: Close unanswered BC250 issues after 30 days
+
+on:
+  schedule:
+    - cron: '7 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  close-unanswered-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close issues without follow-up after 30 days
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Only these three issues are in scope. The anchor is our
+            // published v2.11 fix comment, not the issue creation date.
+            const tracked = [
+              { number: 1, anchorId: 6387537648 },
+              { number: 2, anchorId: 6387537972 },
+              { number: 3, anchorId: 6387533541 },
+            ];
+            const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+            const { owner, repo } = context.repo;
+
+            for (const { number, anchorId } of tracked) {
+              const { data: issue } = await github.rest.issues.get({
+                owner, repo, issue_number: number,
+              });
+              if (issue.state !== 'open' || issue.pull_request) {
+                core.info(`#${number}: already closed or not an issue; skipping`);
+                continue;
+              }
+
+              const comments = await github.paginate(
+                github.rest.issues.listComments,
+                { owner, repo, issue_number: number, per_page: 100 },
+              );
+              const anchorIndex = comments.findIndex(c => c.id === anchorId);
+              if (anchorIndex < 0) {
+                core.warning(`#${number}: fix comment not found; skipping`);
+                continue;
+              }
+
+              const fixDate = Date.parse(comments[anchorIndex].created_at);
+              if (!Number.isFinite(fixDate) || Date.now() - fixDate < thirtyDays) {
+                core.info(`#${number}: waiting for the 30-day deadline`);
+                continue;
+              }
+
+              // A non-maintainer's reply after our fix comment means
+              // the issue needs attention and must NOT auto-close.
+              const replied = comments.slice(anchorIndex + 1).some(c =>
+                c.user?.login?.toLowerCase() !== owner.toLowerCase() &&
+                c.user?.type !== 'Bot'
+              );
+              if (replied) {
+                core.info(`#${number}: participant replied; keeping open`);
+                continue;
+              }
+
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: number,
+                body: 'Closing this issue after 30 days without a follow-up to the v2.11 fix. If the issue persists, please reopen it or open a new issue with your Bazzite/kernel version and logs. Thanks for your report!',
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: number,
+                state: 'closed', state_reason: 'not_planned',
+              });
+              core.info(`#${number}: closed after 30 days without a reply`);
+            }
